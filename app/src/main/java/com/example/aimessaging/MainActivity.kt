@@ -69,9 +69,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addResponse(response: String) {
+    private fun addResponse(response: JSONObject) {
         messageList.removeAt(messageList.size - 1)
-        addToChat(response, Messaging.SENT_BY_BOT)
+        val content = response.getJSONObject("delta").getString("content")
+        addToChat(content, Messaging.SENT_BY_BOT)
     }
 
     private fun fetchApiResponse(question: String) {
@@ -85,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                 response?.let {
                     Log.d("ApiResponse", "Received response: $it")
                     try {
-                        addMessagesFromJson(it) // Parse and add messages from JSON response
+                        addMessagesFromJson(it.toString())
                     } catch (e: JSONException) {
                         e.printStackTrace()
                         Log.e("ApiResponse", "JSONException occurred: ${e.message}")
@@ -93,7 +94,7 @@ class MainActivity : AppCompatActivity() {
                             put("delta", JSONObject().apply {
                                 put("content", "JSONException occurred: ${e.message}")
                             })
-                        }.toString())
+                        })
                     }
                 } ?: run {
                     Log.e("ApiResponse", "Failed to load response")
@@ -101,7 +102,7 @@ class MainActivity : AppCompatActivity() {
                         put("delta", JSONObject().apply {
                             put("content", "Failed to load response")
                         })
-                    }.toString())
+                    })
                 }
             } catch (e: IOException) {
                 e.printStackTrace()
@@ -110,7 +111,7 @@ class MainActivity : AppCompatActivity() {
                     put("delta", JSONObject().apply {
                         put("content", "IOException occurred: ${e.message}")
                     })
-                }.toString())
+                })
             } catch (e: Exception) {
                 e.printStackTrace()
                 Log.e("ApiResponse", "Unexpected Exception occurred: ${e.message}")
@@ -118,11 +119,12 @@ class MainActivity : AppCompatActivity() {
                     put("delta", JSONObject().apply {
                         put("content", "Unexpected Exception occurred: ${e.message}")
                     })
-                }.toString())
+                })
             }
         }
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private fun addMessagesFromJson(jsonData: String) {
         try {
             val jsonObject = JSONObject(jsonData)
@@ -133,23 +135,21 @@ class MainActivity : AppCompatActivity() {
                 val contentObject = choiceObject.getJSONObject("delta")
                 val content = contentObject.getString("content")
 
-                // Add the message to the list
+
                 messageList.add(Messaging(content, Messaging.SENT_BY_BOT))
             }
 
-            // Notify adapter that data set has changed
             runOnUiThread {
                 messageAdapter.notifyDataSetChanged()
                 recyclerView.smoothScrollToPosition(messageAdapter.itemCount)
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            Log.e("MainActivity", "Error parsing JSON: ${e.message}")
+            Log.e("com.example.aimessaging.MainActivity", "Error parsing JSON: ${e.message}")
         }
     }
 
-
-    private fun getApiResponse(question: String): String? {
+    private fun getApiResponse(question: String): JSONObject? {
         val url = "http://10.0.0.160:1234/v1/chat/completions"
         val json = """
         {
@@ -172,7 +172,7 @@ class MainActivity : AppCompatActivity() {
                 if (!response.isSuccessful) throw IOException("Unexpected code ${response.code}")
                 val responseData = response.body?.string()?.trim() ?: return null
                 Log.d("ApiResponse", "Response data: $responseData")
-                responseData
+                JSONObject(responseData) // Return JSON response directly
             }
         } catch (e: IOException) {
             e.printStackTrace()
@@ -180,5 +180,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+
 
 
