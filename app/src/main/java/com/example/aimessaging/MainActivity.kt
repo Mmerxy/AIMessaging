@@ -85,36 +85,69 @@ class MainActivity : AppCompatActivity() {
                 response?.let {
                     Log.d("ApiResponse", "Received response: $it")
                     try {
-                        // Parse JSON response
-                        val jsonData = JSONObject(it)
-                        val choicesArray = jsonData.getJSONArray("choices")
-                        if (choicesArray.length() > 0) {
-                            val content = choicesArray.getJSONObject(0).getJSONObject("delta").getString("content")
-                            addResponse(content)
-                        } else {
-                            Log.e("ApiResponse", "No choices found in the response")
-                            addResponse("No choices found in the response")
-                        }
+                        addMessagesFromJson(it) // Parse and add messages from JSON response
                     } catch (e: JSONException) {
                         e.printStackTrace()
                         Log.e("ApiResponse", "JSONException occurred: ${e.message}")
-                        addResponse("JSONException occurred: ${e.message}")
+                        addResponse(JSONObject().apply {
+                            put("delta", JSONObject().apply {
+                                put("content", "JSONException occurred: ${e.message}")
+                            })
+                        }.toString())
                     }
                 } ?: run {
                     Log.e("ApiResponse", "Failed to load response")
-                    addResponse("Failed to load response")
+                    addResponse(JSONObject().apply {
+                        put("delta", JSONObject().apply {
+                            put("content", "Failed to load response")
+                        })
+                    }.toString())
                 }
             } catch (e: IOException) {
                 e.printStackTrace()
                 Log.e("ApiResponse", "IOException occurred: ${e.message}")
-                addResponse("IOException occurred: ${e.message}")
+                addResponse(JSONObject().apply {
+                    put("delta", JSONObject().apply {
+                        put("content", "IOException occurred: ${e.message}")
+                    })
+                }.toString())
             } catch (e: Exception) {
                 e.printStackTrace()
                 Log.e("ApiResponse", "Unexpected Exception occurred: ${e.message}")
-                addResponse("Unexpected Exception occurred: ${e.message}")
+                addResponse(JSONObject().apply {
+                    put("delta", JSONObject().apply {
+                        put("content", "Unexpected Exception occurred: ${e.message}")
+                    })
+                }.toString())
             }
         }
     }
+
+    private fun addMessagesFromJson(jsonData: String) {
+        try {
+            val jsonObject = JSONObject(jsonData)
+            val choicesArray = jsonObject.getJSONArray("choices")
+
+            for (i in 0 until choicesArray.length()) {
+                val choiceObject = choicesArray.getJSONObject(i)
+                val contentObject = choiceObject.getJSONObject("delta")
+                val content = contentObject.getString("content")
+
+                // Add the message to the list
+                messageList.add(Messaging(content, Messaging.SENT_BY_BOT))
+            }
+
+            // Notify adapter that data set has changed
+            runOnUiThread {
+                messageAdapter.notifyDataSetChanged()
+                recyclerView.smoothScrollToPosition(messageAdapter.itemCount)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.e("MainActivity", "Error parsing JSON: ${e.message}")
+        }
+    }
+
 
     private fun getApiResponse(question: String): String? {
         val url = "http://10.0.0.160:1234/v1/chat/completions"
