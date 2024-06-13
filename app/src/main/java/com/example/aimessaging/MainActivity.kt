@@ -1,6 +1,5 @@
 package com.example.aimessaging
 
-
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
@@ -46,7 +45,6 @@ class MainActivity : AppCompatActivity() {
         messageEditText = findViewById(R.id.message_edit_text)
         sendButton = findViewById(R.id.send_btn)
 
-        // Setup recycler view
         messageAdapter = MessageAdapter(messageList)
         recyclerView.adapter = messageAdapter
         val llm = LinearLayoutManager(this)
@@ -71,10 +69,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addResponse(response: JSONObject) {
+    private fun addResponse(response: String) {
         messageList.removeAt(messageList.size - 1)
-        val content = response.getJSONObject("delta").getString("content")
-        addToChat(content, Messaging.SENT_BY_BOT)
+        addToChat(response, Messaging.SENT_BY_BOT)
     }
 
     private fun fetchApiResponse(question: String) {
@@ -88,48 +85,38 @@ class MainActivity : AppCompatActivity() {
                 response?.let {
                     Log.d("ApiResponse", "Received response: $it")
                     try {
-                        val jsonData = it // Already a JSONObject, no need to parse again
+                        // Parse JSON response
+                        val jsonData = JSONObject(it)
                         val choicesArray = jsonData.getJSONArray("choices")
                         if (choicesArray.length() > 0) {
-                            val content = choicesArray.getJSONObject(0)
-                                .getJSONObject("delta").getString("content")
-                            addResponse(choicesArray.getJSONObject(0))
+                            val content = choicesArray.getJSONObject(0).getJSONObject("delta").getString("content")
+                            addResponse(content)
                         } else {
                             Log.e("ApiResponse", "No choices found in the response")
-                            addResponse(JSONObject().apply {
-                                put("content", "No choices found in the response")
-                            })
+                            addResponse("No choices found in the response")
                         }
                     } catch (e: JSONException) {
                         e.printStackTrace()
                         Log.e("ApiResponse", "JSONException occurred: ${e.message}")
-                        addResponse(JSONObject().apply {
-                            put("content", "JSONException occurred: ${e.message}")
-                        })
+                        addResponse("JSONException occurred: ${e.message}")
                     }
                 } ?: run {
                     Log.e("ApiResponse", "Failed to load response")
-                    addResponse(JSONObject().apply {
-                        put("content", "Failed to load response")
-                    })
+                    addResponse("Failed to load response")
                 }
             } catch (e: IOException) {
                 e.printStackTrace()
                 Log.e("ApiResponse", "IOException occurred: ${e.message}")
-                addResponse(JSONObject().apply {
-                    put("content", "IOException occurred: ${e.message}")
-                })
+                addResponse("IOException occurred: ${e.message}")
             } catch (e: Exception) {
                 e.printStackTrace()
                 Log.e("ApiResponse", "Unexpected Exception occurred: ${e.message}")
-                addResponse(JSONObject().apply {
-                    put("content", "Unexpected Exception occurred: ${e.message}")
-                })
+                addResponse("Unexpected Exception occurred: ${e.message}")
             }
         }
     }
 
-    private fun getApiResponse(question: String): JSONObject? {
+    private fun getApiResponse(question: String): String? {
         val url = "http://10.0.0.160:1234/v1/chat/completions"
         val json = """
         {
@@ -152,7 +139,7 @@ class MainActivity : AppCompatActivity() {
                 if (!response.isSuccessful) throw IOException("Unexpected code ${response.code}")
                 val responseData = response.body?.string()?.trim() ?: return null
                 Log.d("ApiResponse", "Response data: $responseData")
-                JSONObject(responseData) // Return JSON response directly
+                responseData
             }
         } catch (e: IOException) {
             e.printStackTrace()
@@ -160,6 +147,5 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
 
 
